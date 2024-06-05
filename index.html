@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptocurrency App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background-color: green; /* Changed from plum to green */
+            color: white;
+        }
+
+        #search {
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+
+        main {
+            padding: 1rem;
+        }
+
+        #crypto-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .crypto-item {
+            border: 1px solid #ddd;
+            padding: 1rem;
+            width: 200px;
+            cursor: pointer;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .crypto-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #crypto-details {
+            padding: 1rem;
+        }
+
+        #back-button {
+            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #details-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Cryptocurrency App</h1>
+        <input type="text" id="search" placeholder="Search for a cryptocurrency...">
+    </header>
+    <main>
+        <section id="crypto-list"></section>
+        <section id="crypto-details" class="hidden">
+            <button id="back-button">Back</button>
+            <div id="details-content"></div>
+            <canvas id="price-chart"></canvas>
+        </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+    <script>
+        const API_URL = 'https://api.coingecko.com/api/v3';
+        let cryptocurrencies = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchCryptocurrencies();
+            document.getElementById('search').addEventListener('input', filterCryptocurrencies);
+            document.getElementById('back-button').addEventListener('click', showCryptoList);
+        });
+
+        function fetchCryptocurrencies() {
+            fetch(`${API_URL}/coins/markets?vs_currency=usd`)
+            .then(response => response.json())
+            .then(data => {
+                cryptocurrencies = data;
+                displayCryptocurrencies(data);
+            });
+        }
+
+        function displayCryptocurrencies(data) {
+            const list = document.getElementById('crypto-list');
+            list.innerHTML = '';
+            data.forEach(crypto => {
+                const item = document.createElement('div');
+                item.classList.add('crypto-item');
+                item.innerHTML = `
+                    <h2>${crypto.name}</h2>
+                    <p>Price: $${crypto.current_price.toFixed(2)}</p>
+                    <p>Market Cap: $${crypto.market_cap.toLocaleString()}</p>
+                `;
+                item.addEventListener('click', () => showCryptoDetails(crypto.id));
+                list.appendChild(item);
+            });
+        }
+
+        function filterCryptocurrencies(event) {
+            const query = event.target.value.toLowerCase();
+            const filtered = cryptocurrencies.filter(crypto => crypto.name.toLowerCase().includes(query));
+            displayCryptocurrencies(filtered);
+        }
+
+        function showCryptoDetails(id) {
+            fetch(`${API_URL}/coins/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('crypto-list').classList.add('hidden');
+                document.getElementById('crypto-details').classList.remove('hidden');
+
+                const details = document.getElementById('details-content');
+                details.innerHTML = `
+                    <h2>${data.name}</h2>
+                    <p>Price: $${data.market_data.current_price.usd}</p>
+                    <p>Market Cap: $${data.market_data.market_cap.usd.toLocaleString()}</p>
+                    <p>24h High: $${data.market_data.high_24h.usd}</p>
+                    <p>24h Low: $${data.market_data.low_24h.usd}</p>
+                    <button id="favorite-button">Add to Favorites</button>
+                `;
+
+                document.getElementById('favorite-button').addEventListener('click', () => addToFavorites(data));
+
+                displayPriceChart(data.market_data.sparkline_7d.price);
+            });
+        }
+
+        function showCryptoList() {
+            document.getElementById('crypto-list').classList.remove('hidden');
+            document.getElementById('crypto-details').classList.add('hidden');
+        }
+
+        function displayPriceChart(prices) {
+            const ctx = document.getElementById('price-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(prices.length).fill(''),
+                    datasets: [{
+                        label: 'Price',
+                        data: prices,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function addToFavorites(crypto) {
+            let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+            if (!favorites.find(fav => fav.id === crypto.id)) {
+                favorites.push(crypto);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                alert(`${crypto.name} has been added to your favorites.`);
+            } else {
+                alert(`${crypto.name} is already in your favorites.`);
+            }
+        }
+    </script>
+</body>
+</html>
